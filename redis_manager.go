@@ -215,9 +215,17 @@ func (redisMgr *RedisManager) CheckObject(key string) error {
 		// TODO Should I declare an error type?
 		return nil
 	}
+	_, err = client.Expire(key, redisMgr.expireTime)
+	if err != nil {
+		log.Error(err.Error())
+	}
 	errSet := client.Set(statusKey, []byte(RedisManagerStatusChecked))
 	if errSet != nil {
 		return errSet
+	}
+	_, err = client.Expire(key, redisMgr.expireTime)
+	if err != nil {
+		log.Error(err.Error())
 	}
 	return nil
 }
