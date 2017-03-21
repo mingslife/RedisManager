@@ -2,155 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	// "fmt"
 	"github.com/alphazero/Go-Redis"
 )
 
-const (
-	UNKNOWN = iota
-	MALE
-	FEMALE
-)
-
-type Student struct {
-	Id   int
-	Name string
-	Sex  int
-}
-
-func (student *Student) introduce() {
-	fmt.Printf("Hello, I am %s.\n", student.Name)
-}
-
-func main0() {
-	spec := redis.DefaultSpec().Db(0).Password("")
-	client, err := redis.NewSynchClientWithSpec(spec)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-	key := "students/1"
-	student := &Student{
-		Id:   1,
-		Name: "Ming",
-	}
-	b, errStringify := json.Marshal(student)
-	if errStringify != nil {
-		fmt.Println(errStringify.Error())
-		return
-	}
-	errSet := client.Set(key, b)
-	if errSet != nil {
-		fmt.Println(errSet.Error())
-		return
-	}
-	testStudent := &Student{}
-	testB, err := client.Get(key)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-	errParse := json.Unmarshal(testB, testStudent)
-	if errParse != nil {
-		fmt.Println(errParse)
-		return
-	}
-	fmt.Println(testStudent.Id)
-	fmt.Println(testStudent.Name)
-}
-
-const (
-	DevelopmentMode = iota
-	ProductionMode
-)
-
-var mode = ProductionMode
-
-type Log struct{}
-
-func (log *Log) Error(v interface{}) {
-	if mode == DevelopmentMode {
-		fmt.Println(v)
-	}
-}
-func (log *Log) Debug(v interface{}) {
-	if mode == DevelopmentMode {
-		fmt.Println(v)
-	}
-}
-
 var log = &Log{}
-
-func main() {
-	student := &Student{
-		Id:   1,
-		Name: "Ming",
-		Sex:  MALE,
-	}
-	redisMgr := NewRedisManager("127.0.0.1", 6379, "", 0)
-	redisMgr.SetObject("students/3", student)
-	testStudent := &Student{}
-	redisMgr.GetObject("students/3", testStudent)
-	fmt.Println(testStudent)
-
-	// student1 := &Student{
-	// 	Id:   1,
-	// 	Name: "Ming",
-	// 	Sex:  MALE,
-	// }
-	// student2 := &Student{
-	// 	Id:   2,
-	// 	Name: "Mary",
-	// 	Sex:  MALE,
-	// }
-	// student3 := &Student{
-	// 	Id:   3,
-	// 	Name: "Jack",
-	// 	Sex:  FEMALE,
-	// }
-	// redisMgr.SetObjects("test", []Student{})
-
-	// students := make([]Student, 100)
-	// students = append(students, *student1)
-	// students = append(students, *student2)
-	// students = append(students, *student3)
-	// redisMgr.SetObject("test", students)
-}
-
-// RedisManagerError
-
-// No use yet
-type RedisManagerError struct {
-	error
-	msg  string
-	code int
-}
-
-const (
-	RedisManagerUncheckError = iota
-	RedisManagerCheckError
-	RedisManagerDirtyError
-	RedisManagerConnectError
-	RedisManagerJsonEncodeError
-	RedisManagerJsonDecodeError
-)
-
-func newRedisManagerError(message string, errorCode int) *RedisManagerError {
-	return &RedisManagerError{
-		msg:  message,
-		code: errorCode,
-	}
-}
-
-func (err *RedisManagerError) IsRedisManagerError() bool {
-	return true
-}
-
-func (err *RedisManagerError) Error() string {
-	return fmt.Sprintf("RedisManagerError: ", err.msg)
-}
-
-// RedisManager
 
 // Const for status
 const (
@@ -205,7 +61,6 @@ func (redisMgr *RedisManager) getStatusKey(key string) string {
 func (redisMgr *RedisManager) Set(key string, str string) error {
 	client, err := redisMgr.getClient()
 	if err != nil {
-		log.Error(err.Error())
 		return err
 	}
 	err = client.Set(key, []byte(str))
@@ -219,7 +74,6 @@ func (redisMgr *RedisManager) Set(key string, str string) error {
 func (redisMgr *RedisManager) Get(key string) (string, error) {
 	client, err := redisMgr.getClient()
 	if err != nil {
-		log.Error(err.Error())
 		return "", err
 	}
 	strBytes, err := client.Get(key)
@@ -228,6 +82,14 @@ func (redisMgr *RedisManager) Get(key string) (string, error) {
 		return "", err
 	}
 	return string(strBytes), nil
+}
+
+func (redisMgr *RedisManager) Del(key string) (bool, error) {
+	client, err := redisMgr.getClient()
+	if err != nil {
+		return false, err
+	}
+	return client.Del(key)
 }
 
 func (redisMgr *RedisManager) SetObject(key string, obj interface{}) (string, error) {
@@ -239,7 +101,6 @@ func (redisMgr *RedisManager) SetObject(key string, obj interface{}) (string, er
 	log.Debug(bytes)
 	client, err := redisMgr.getClient()
 	if err != nil {
-		log.Error(err.Error())
 		return RedisManagerStatusEmpty, err
 	}
 	exists, err := client.Exists(key)
@@ -268,7 +129,6 @@ func (redisMgr *RedisManager) SetObject(key string, obj interface{}) (string, er
 func (redisMgr *RedisManager) GetObject(key string, obj interface{}) (string, error) {
 	client, err := redisMgr.getClient()
 	if err != nil {
-		log.Error(err.Error())
 		return RedisManagerStatusEmpty, err
 	}
 	exists, err := client.Exists(key)
@@ -303,10 +163,53 @@ func (redisMgr *RedisManager) GetObject(key string, obj interface{}) (string, er
 
 }
 
-// TODO Should be implemented here
-func (redisMgr *RedisManager) SetObjects(key string, objs []interface{}) {
-	log.Debug(key)
-	for _, obj := range objs {
-		log.Debug(obj)
+func (redisMgr *RedisManager) DelObject(key string) (bool, error) {
+	client, err := redisMgr.getClient()
+	if err != nil {
+		return false, err
 	}
+	statusKey := redisMgr.getStatusKey(key)
+	delResult, err := client.Del(key)
+	if err != nil {
+		log.Error(err.Error())
+		return false, err
+	}
+	delStatusResult, err := client.Del(statusKey)
+	if err != nil {
+		log.Error(err.Error())
+		return false, err
+	}
+	return delResult && delStatusResult, nil
 }
+
+func (redisMgr *RedisManager) CheckObject(key string) error {
+	client, err := redisMgr.getClient()
+	if err != nil {
+		return err
+	}
+	statusKey := redisMgr.getStatusKey(key)
+	exists, err := client.Exists(key)
+	if err != nil {
+		log.Error(err.Error())
+		return err
+	} else if !exists {
+		// TODO Should I declare an error type?
+		return nil
+	} else if statusBytes, err := client.Get(statusKey); err != nil || string(statusBytes) == RedisManagerStatusChecked {
+		// TODO Should I declare an error type?
+		return nil
+	}
+	errSet := client.Set(statusKey, []byte(RedisManagerStatusChecked))
+	if errSet != nil {
+		return errSet
+	}
+	return nil
+}
+
+// TODO Should be implemented here
+// func (redisMgr *RedisManager) SetObjects(key string, objs []interface{}) {
+// 	log.Debug(key)
+// 	for _, obj := range objs {
+// 		log.Debug(obj)
+// 	}
+// }
