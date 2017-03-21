@@ -16,24 +16,40 @@ const (
 	RedisManagerStatusDirty     = "3"
 )
 
+const (
+	RedisManagerExpireTime int64 = 21600 // 6 hours
+)
+
 type RedisManager struct {
 	// Private
 	client redis.Client
-
-	// Public
-	Host     string
-	Port     int
-	Password string
-	Db       int
+	// Constructor args
+	expireTime int64
+	host       string
+	port       int
+	password   string
+	db         int
 }
 
 func NewRedisManager(host string, port int, password string, db int) *RedisManager {
 	return &RedisManager{
-		client:   nil,
-		Host:     host,
-		Port:     port,
-		Password: password,
-		Db:       db,
+		client:     nil,
+		expireTime: RedisManagerExpireTime,
+		host:       host,
+		port:       port,
+		password:   password,
+		db:         db,
+	}
+}
+
+func NewRedisManagerWithExpireTime(host string, port int, password string, db int, expireTime int64) *RedisManager {
+	return &RedisManager{
+		client:     nil,
+		expireTime: expireTime,
+		host:       host,
+		port:       port,
+		password:   password,
+		db:         db,
 	}
 }
 
@@ -44,7 +60,7 @@ func (redisMgr *RedisManager) getClient() (redis.Client, error) {
 	if redisMgr.client != nil && redisMgr.client.Ping() != nil {
 		return redisMgr.client, nil
 	}
-	spec := redis.DefaultSpec().Host(redisMgr.Host).Port(redisMgr.Port).Password(redisMgr.Password).Db(redisMgr.Db)
+	spec := redis.DefaultSpec().Host(redisMgr.host).Port(redisMgr.port).Password(redisMgr.password).Db(redisMgr.db)
 	client, err := redis.NewSynchClientWithSpec(spec)
 	if err != nil {
 		log.Error(err.Error())
